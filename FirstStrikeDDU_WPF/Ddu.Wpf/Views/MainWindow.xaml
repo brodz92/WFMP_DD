@@ -24,7 +24,14 @@
                     <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="Tenant:"/>
                     <TextBox Width="120" Text="{Binding Tenant}"/>
                 </StackPanel>
+            
+                <Separator/>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Margin="8,0,4,0" VerticalAlignment="Center" Text="Import Type:"/>
+                    <ComboBox Width="160" ItemsSource="{Binding ImportTypes}" SelectedItem="{Binding SelectedImportType}" />
+                </StackPanel>
             </ToolBar>
+
         </ToolBarTray>
         <Grid>
             <DataGrid ItemsSource="{Binding Rows}" AutoGenerateColumns="True" IsReadOnly="False" CanUserAddRows="True"
