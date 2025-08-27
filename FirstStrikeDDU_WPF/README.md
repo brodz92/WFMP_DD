@@ -36,3 +36,11 @@ Edit the fields on the toolbar (Base URL, Tenant, Client Id/Secret, App Key, Use
 
 ## Notes
 This is a scaffold; no vendor code included. Keep your tenant credentials secure.
+
+
+## Batch 1 (wired)
+- People — `PeopleImportService` → **Endpoint placeholder** `/wfd/replaceme/people`
+- Pay Codes — `PayCodeImportService` → **Endpoint placeholder** `/wfd/replaceme/paycodes`
+- Shift Templates — `ShiftTemplateImportService` → **Endpoint placeholder** `/wfd/replaceme/shift-templates`
+
+Replace each endpoint with your actual WFD API paths. The mappers demonstrate how to convert CSV rows to JSON payloads; extend them with all required fields for your tenant.

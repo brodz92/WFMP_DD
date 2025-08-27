@@ -1,8 +1,8 @@
-
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Ddu.Core.Models;
 using Ddu.Core.Services;
+using Ddu.Wpf.Models;
 using Microsoft.Win32;
 using System.Collections.ObjectModel;
 using System.Net.Http;
@@ -13,8 +13,15 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly CsvService _csv = new();
     private readonly WfdApiClient _api;
+    private readonly PeopleImportService _people = new();
+    private readonly PayCodeImportService _paycodes = new();
+    private readonly ShiftTemplateImportService _shifts = new();
 
     public ObservableCollection<CsvRecord> Rows { get; } = new();
+
+    public Array ImportTypes { get; } = Enum.GetValues(typeof(ImportType));
+
+    [ObservableProperty] private ImportType selectedImportType = ImportType.People;
 
     [ObservableProperty] private string status = "Ready";
     [ObservableProperty] private string progressText = "";
@@ -67,30 +74,34 @@ public partial class MainViewModel : ObservableObject
             var conn = new WfdConnection(BaseUrl, ClientId, ClientSecret, AppKey, Username, Password, Tenant);
             await _api.AuthenticateAsync(conn);
 
-            // Example: send each row to a placeholder endpoint (replace with your actual WFD path)
-            // Use batching for speed; here is a small demo that simulates posting 4 at a time.
-            Status = "Importing…";
-            var batchSize = 4;
-            var tasks = new List<Task>();
-            int done = 0;
-            using var sem = new SemaphoreSlim(batchSize);
-            foreach (var row in Rows)
+            Status = $"Importing ({SelectedImportType})…";
+            (int ok, int failed, List<CsvRecord> failures, List<string> messages) result = SelectedImportType switch
             {
-                await sem.WaitAsync();
-                tasks.Add(Task.Run(async () => {
-                    try
-                    {
-                        var payload = new { tenantId = Tenant, data = row };
-                        var resp = await _api.PostJsonAsync($"/tas/replaceme/endpoint", payload);
-                        resp.EnsureSuccessStatusCode();
-                        var current = Interlocked.Increment(ref done);
-                        ProgressText = $"{current}/{Rows.Count}";
-                    }
-                    finally { sem.Release(); }
-                }));
+                ImportType.People => await _people.ImportAsync(Rows, _api, Tenant),
+                ImportType.PayCodes => await _paycodes.ImportAsync(Rows, _api, Tenant),
+                ImportType.ShiftTemplates => await _shifts.ImportAsync(Rows, _api, Tenant),
+                _ => (0,0,new(),new())
+            };
+
+            Status = $"Done. OK: {result.ok}, Failed: {result.failed}";
+            if (result.failed > 0)
+            {
+                // Offer to save failures as CSV
+                var dlg = new SaveFileDialog{ Filter = "CSV files (*.csv)|*.csv", FileName = $"{SelectedImportType}_failures.csv" };
+                if (dlg.ShowDialog() == true)
+                {
+                    await _csv.SaveAsync(dlg.FileName, result.failures);
+                    ProgressText = $"Saved failures to {dlg.FileName}";
+                }
+                else
+                {
+                    ProgressText = string.Join(" | ", result.messages.Take(3));
+                }
             }
-            await Task.WhenAll(tasks);
-            Status = "Import complete.";
+            else
+            {
+                ProgressText = "All rows imported successfully.";
+            }
         }
         catch (Exception ex)
         {
